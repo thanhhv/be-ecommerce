@@ -24,24 +24,24 @@ src/
 
 ---
 
-## Phase 0 — Project Foundation & Dev Setup
+## Phase 0 — Project Foundation & Dev Setup ✅ DONE
 
 **Goal:** Establish the scaffolding that all future phases build on.
 
 ### Tasks
-- [ ] Initialize Node.js project with TypeScript (`tsconfig.json`, strict mode)
-- [ ] Configure ESLint + Prettier + Husky (pre-commit hooks)
-- [ ] Setup folder structure following Clean Architecture
-- [ ] Configure environment management (`dotenv`, `.env.example`)
-- [ ] Setup PostgreSQL connection with `pg` (raw) or `Knex.js` as query builder
-- [ ] Write base migration runner (using `node-pg-migrate` or `Knex migrations`)
-- [ ] Create shared error classes: `AppError`, `NotFoundError`, `ValidationError`, `UnauthorizedError`
-- [ ] Create base response wrapper: `ApiResponse<T>` with `success`, `data`, `message`, `pagination`
-- [ ] Setup global error handler middleware in Express
-- [ ] Setup request logger (Morgan or custom)
-- [ ] Configure `Jest` + `Supertest` for unit and integration tests
-- [ ] Write a health check endpoint: `GET /api/health`
-- [ ] Setup Docker Compose for local PostgreSQL
+- [x] Initialize Node.js project with TypeScript (`tsconfig.json`, strict mode)
+- [x] Configure ESLint + Prettier + Husky (pre-commit hooks)
+- [x] Setup folder structure following Clean Architecture
+- [x] Configure environment management (`dotenv`, `.env.example`)
+- [x] Setup PostgreSQL connection with Knex.js as query builder
+- [x] Write base migration runner (Knex migrations)
+- [x] Create shared error classes: `AppError`, `NotFoundError`, `ValidationError`, `UnauthorizedError`
+- [x] Create base response wrapper: `ApiResponse<T>` with `success`, `data`, `message`, `pagination`
+- [x] Setup global error handler middleware in Express
+- [x] Setup request logger (Winston, with request ID)
+- [x] Configure `Jest` + `Supertest` for unit and integration tests
+- [x] Write a health check endpoint: `GET /api/v1/health`
+- [x] Setup Docker Compose for local PostgreSQL
 
 ### Deliverables
 - Running Express server with clean folder structure
@@ -77,12 +77,12 @@ src/
 
 ### Presentation
 - Routes:
-  - `GET  /api/auth/google` — redirect to Google
-  - `GET  /api/auth/google/callback` — OAuth callback
-  - `POST /api/auth/refresh` — refresh access token
-  - `POST /api/auth/logout` — logout
-  - `GET  /api/users/me` — get profile (protected)
-  - `PUT  /api/users/me` — update profile (protected)
+  - `GET  /api/v1/auth/google` — redirect to Google
+  - `GET  /api/v1/auth/google/callback` — OAuth callback
+  - `POST /api/v1/auth/refresh` — refresh access token
+  - `POST /api/v1/auth/logout` — logout
+  - `GET  /api/v1/users/me` — get profile (protected)
+  - `PUT  /api/v1/users/me` — update profile (protected)
 - Middlewares:
   - `authenticate` — verify JWT, attach `req.user`
   - `validate` — Zod/Joi schema validation
@@ -124,13 +124,13 @@ refresh_tokens (id, user_id, token_hash, expires_at, created_at)
 
 ### Presentation
 - Routes:
-  - `GET  /api/products` — list with filters & pagination
-  - `GET  /api/products/:slug` — product detail
-  - `GET  /api/categories` — list categories
-  - `POST /api/admin/products` — create (admin)
-  - `PUT  /api/admin/products/:id` — update (admin)
-  - `DELETE /api/admin/products/:id` — delete (admin)
-  - `POST /api/admin/categories` — create category (admin)
+  - `GET  /api/v1/products` — list with filters & pagination
+  - `GET  /api/v1/products/:slug` — product detail
+  - `GET  /api/v1/categories` — list categories
+  - `POST /api/v1/admin/products` — create (admin)
+  - `PUT  /api/v1/admin/products/:id` — update (admin)
+  - `DELETE /api/v1/admin/products/:id` — delete (admin)
+  - `POST /api/v1/admin/categories` — create category (admin)
 - Middlewares: `authorizeAdmin` — check `req.user.role === 'admin'`
 
 ### Database Tables
@@ -172,11 +172,11 @@ product_images (id, product_id, url, is_primary, sort_order)
 
 ### Presentation
 - Routes (all protected):
-  - `GET    /api/cart` — get cart
-  - `POST   /api/cart/items` — add item
-  - `PUT    /api/cart/items/:itemId` — update quantity
-  - `DELETE /api/cart/items/:itemId` — remove item
-  - `DELETE /api/cart` — clear cart
+  - `GET    /api/v1/cart` — get cart
+  - `POST   /api/v1/cart/items` — add item
+  - `PUT    /api/v1/cart/items/:itemId` — update quantity
+  - `DELETE /api/v1/cart/items/:itemId` — remove item
+  - `DELETE /api/v1/cart` — clear cart
 
 ### Database Tables
 ```sql
@@ -214,12 +214,12 @@ cart_items (id, cart_id, product_id, quantity, price_snapshot, created_at)
 
 ### Presentation
 - Routes:
-  - `POST /api/orders` — place order (protected)
-  - `GET  /api/orders` — list my orders (protected)
-  - `GET  /api/orders/:id` — order detail (protected)
-  - `PUT  /api/orders/:id/cancel` — cancel order (protected)
-  - `GET  /api/admin/orders` — all orders (admin)
-  - `PUT  /api/admin/orders/:id/status` — update status (admin)
+  - `POST /api/v1/orders` — place order (protected)
+  - `GET  /api/v1/orders` — list my orders (protected)
+  - `GET  /api/v1/orders/:id` — order detail (protected)
+  - `PUT  /api/v1/orders/:id/cancel` — cancel order (protected)
+  - `GET  /api/v1/admin/orders` — all orders (admin)
+  - `PUT  /api/v1/admin/orders/:id/status` — update status (admin)
 
 ### Database Tables
 ```sql
@@ -252,12 +252,12 @@ order_items (id, order_id, product_id, product_name_snapshot, product_image_snap
   - `GetDashboardStatsUseCase` — total revenue, orders today, low stock alerts, recent orders
 
 ### New Routes
-- `GET  /api/admin/dashboard/stats`
-- `GET  /api/admin/inventory`
-- `PUT  /api/admin/inventory/:productId/adjust`
-- `GET  /api/admin/users`
-- `PUT  /api/admin/users/:id/ban`
-- `GET  /api/admin/orders/export` (CSV)
+- `GET  /api/v1/admin/dashboard/stats`
+- `GET  /api/v1/admin/inventory`
+- `PUT  /api/v1/admin/inventory/:productId/adjust`
+- `GET  /api/v1/admin/users`
+- `PUT  /api/v1/admin/users/:id/ban`
+- `GET  /api/v1/admin/orders/export` (CSV)
 
 ### Database Tables
 ```sql
@@ -289,11 +289,11 @@ stock_adjustments (id, product_id, admin_id, quantity_change, reason, created_at
   - `RefundPaymentUseCase` (admin)
 
 ### Routes
-- `POST /api/payments/vnpay/initiate`
-- `GET  /api/payments/vnpay/callback` (VNPay redirect)
-- `POST /api/payments/vnpay/ipn` (VNPay server-to-server, no auth)
-- `POST /api/payments/momo/initiate`
-- `POST /api/payments/momo/callback`
+- `POST /api/v1/payments/vnpay/initiate`
+- `GET  /api/v1/payments/vnpay/callback` (VNPay redirect)
+- `POST /api/v1/payments/vnpay/ipn` (VNPay server-to-server, no auth)
+- `POST /api/v1/payments/momo/initiate`
+- `POST /api/v1/payments/momo/callback`
 
 ### Database Tables
 ```sql
@@ -323,13 +323,16 @@ payments (id, order_id, provider, provider_transaction_id, amount, status, raw_r
 - Coverage target: 80%+ on domain + application layers
 
 ### API Standards
+
+All routes **must** use the `/api/v1/` prefix.
+
 ```
-GET    /api/resources           → list (paginated)
-GET    /api/resources/:id       → single
-POST   /api/resources           → create
-PUT    /api/resources/:id       → full update
-PATCH  /api/resources/:id       → partial update
-DELETE /api/resources/:id       → delete
+GET    /api/v1/resources           → list (paginated)
+GET    /api/v1/resources/:id       → single
+POST   /api/v1/resources           → create
+PUT    /api/v1/resources/:id       → full update
+PATCH  /api/v1/resources/:id       → partial update
+DELETE /api/v1/resources/:id       → delete
 
 Response envelope:
 {
@@ -345,6 +348,21 @@ Error envelope:
   "error": { "code": "PRODUCT_NOT_FOUND", "message": "...", "details": [] }
 }
 ```
+
+### Swagger / OpenAPI Documentation
+
+**Rule:** After completing each phase, add Swagger documentation for all new endpoints.
+
+- Library: `swagger-ui-express` + `swagger-jsdoc`
+- Docs available at: `GET /api/v1/docs`
+- Annotate every route handler with JSDoc `@swagger` blocks
+- Document request bodies, query params, path params, and all response schemas
+- Group tags by domain (e.g. `Auth`, `Products`, `Cart`, `Orders`)
+- The Swagger spec must stay in sync with the actual implementation — never leave it outdated
+
+### Phase Status Convention
+
+**Rule:** After implementing a phase, immediately update its heading in this file to `✅ DONE` and check off all completed tasks (`- [x]`). Phases not yet started remain as-is.
 
 ---
 

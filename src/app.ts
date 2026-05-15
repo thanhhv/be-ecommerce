@@ -28,9 +28,9 @@ export function createApp(): Application {
     standardHeaders: true,
     legacyHeaders: false,
   });
-  app.use('/api', limiter);
+  app.use('/api/v1', limiter);
 
-  app.use('/api/health', healthRouter);
+  app.use('/api/v1/health', healthRouter);
 
   app.use((_req: Request, res: Response) => {
     res.status(404).json(ApiResponse.error('NOT_FOUND', 'Route not found'));

@@ -6,7 +6,7 @@ const app = createApp();
 
 describe('GET /api/health', () => {
   it('returns 200 with healthy status', async () => {
-    const res = await request(app).get('/api/health');
+    const res = await request(app).get('/api/v1/health');
     const body = res.body as SuccessResponse<{ status: string; timestamp: string }>;
 
     expect(res.status).toBe(200);
@@ -17,7 +17,7 @@ describe('GET /api/health', () => {
   });
 
   it('returns 404 for unknown routes', async () => {
-    const res = await request(app).get('/api/unknown-route');
+    const res = await request(app).get('/api/v1/unknown-route');
     const body = res.body as ErrorResponse;
 
     expect(res.status).toBe(404);
