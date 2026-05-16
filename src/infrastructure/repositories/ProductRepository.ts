@@ -3,6 +3,7 @@ import { db } from '../database/knex';
 import {
   IProductRepository,
   ProductFilter,
+  AdminProductFilter,
   CreateProductData,
   UpdateProductData,
   ProductWithImages,
@@ -88,6 +89,52 @@ export class ProductRepository implements IProductRepository {
     return {
       data: rows.map((r: Record<string, unknown>) => this.toProduct(r)),
       total: Number(count),
+    };
+  }
+
+  async findManyAdmin(filter: AdminProductFilter): Promise<{ data: Product[]; total: number }> {
+    const page = filter.page ?? 1;
+    const limit = filter.limit ?? 20;
+    const offset = (page - 1) * limit;
+
+    let query = db('products').whereNull('deleted_at');
+    let countQuery = db('products').whereNull('deleted_at');
+
+    if (filter.categoryId) {
+      query = query.where('category_id', filter.categoryId);
+      countQuery = countQuery.where('category_id', filter.categoryId);
+    }
+    if (filter.isActive !== undefined) {
+      query = query.where('is_active', filter.isActive);
+      countQuery = countQuery.where('is_active', filter.isActive);
+    }
+    if (filter.search) {
+      const searchTerm = filter.search;
+      query = query.whereRaw('name ILIKE ?', [`%${searchTerm}%`]);
+      countQuery = countQuery.whereRaw('name ILIKE ?', [`%${searchTerm}%`]);
+    }
+
+    query = query.orderBy('created_at', 'desc');
+
+    const [{ count }] = await countQuery.count('id as count');
+    const rows = await query.limit(limit).offset(offset).select('*');
+
+    return {
+      data: rows.map((r: Record<string, unknown>) => this.toProduct(r)),
+      total: Number(count),
+    };
+  }
+
+  async findByIdWithImages(id: string): Promise<ProductWithImages | null> {
+    const row = await db('products').where({ id }).whereNull('deleted_at').first();
+    if (!row) return null;
+    const images = await db('product_images')
+      .where({ product_id: row.id })
+      .orderBy('sort_order', 'asc')
+      .select('*');
+    return {
+      ...this.toProduct(row),
+      images: images.map((i: Record<string, unknown>) => this.toImage(i)),
     };
   }
 
