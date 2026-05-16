@@ -1,3 +1,69 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+---
+
+## Commands
+
+```bash
+# Development
+npm run dev              # Start with ts-node-dev (hot reload)
+npm run build            # Compile TypeScript → dist/
+npm start                # Run compiled output
+
+# Code quality
+npm run lint             # ESLint on src/ and tests/
+npm run lint:fix         # Auto-fix ESLint issues
+npm run format           # Prettier on src/ and tests/
+
+# Testing
+npm test                 # All tests
+npm run test:unit        # tests/unit/ only
+npm run test:e2e         # tests/e2e/ only
+npm run test:coverage    # With coverage report (80% threshold)
+
+# Database
+docker compose up -d                              # Start PostgreSQL
+npm run migrate:latest                            # Run pending migrations
+npm run migrate:rollback                          # Roll back last migration
+npm run migrate:make -- <name>                    # Create new migration file
+```
+
+## Architecture
+
+This project follows **Clean Architecture** with strict one-way dependency rules:
+
+```
+Presentation → Application → Domain ← Infrastructure
+```
+
+- **Domain** (`src/domain/`) — pure business logic; no framework deps, no DB. Entities, value objects, repository *interfaces*.
+- **Application** (`src/application/`) — use cases and DTOs. Depends only on Domain interfaces; never touches DB directly.
+- **Infrastructure** (`src/infrastructure/`) — implements Domain interfaces. All DB access lives here (Knex queries). `src/infrastructure/database/knex.ts` exports the singleton `db` instance.
+- **Presentation** (`src/presentation/`) — Express routes, controllers, middlewares, Zod validators. Calls application use cases only.
+- **Shared** (`src/shared/`) — cross-cutting code any layer may use: `AppError` hierarchy, `ApiResponse` factory, Winston logger.
+
+## Key Conventions
+
+**Routes** — all routes use the `/api/v1/` prefix. Mount new routers in `src/app.ts`.
+
+**Response shape** — always use `ApiResponse.success()`, `ApiResponse.error()`, or `ApiResponse.paginated()` from `src/shared/response/ApiResponse.ts`. Never return raw objects from controllers.
+
+**Errors** — throw subclasses of `AppError` (`NotFoundError`, `ValidationError`, `UnauthorizedError`, `ForbiddenError`, `ConflictError`) from `src/shared/errors/AppError.ts`. The global `errorHandler` middleware converts them to the standard error envelope automatically.
+
+**Migrations** — create with `npm run migrate:make -- <snake_case_name>`. File goes to `migrations/` with a timestamp prefix. Implement both `up` and `down`.
+
+**Swagger** — after completing each phase, add `@swagger` JSDoc annotations to every new route handler and expose the spec at `GET /api/v1/docs` using `swagger-ui-express` + `swagger-jsdoc`.
+
+**Phase status** — after implementing a phase, mark its CLAUDE.md heading `✅ DONE` and check all its tasks (`- [x]`).
+
+**Type augmentation** — Express `Request` extensions (e.g. `req.requestId`, `req.user`) are declared in `src/types/express.d.ts`.
+
+**Tests** — unit tests in `tests/unit/`, E2E (Supertest) in `tests/e2e/`. Global setup in `tests/setup.ts` sets `NODE_ENV=test`.
+
+---
+
 # E-Commerce Backend Roadmap
 **Stack:** Node.js + Express + PostgreSQL  
 **Architecture:** Clean Architecture (Presentation → Application → Domain → Infrastructure)
@@ -24,24 +90,24 @@ src/
 
 ---
 
-## Phase 0 — Project Foundation & Dev Setup
+## Phase 0 — Project Foundation & Dev Setup ✅ DONE
 
 **Goal:** Establish the scaffolding that all future phases build on.
 
 ### Tasks
-- [ ] Initialize Node.js project with TypeScript (`tsconfig.json`, strict mode)
-- [ ] Configure ESLint + Prettier + Husky (pre-commit hooks)
-- [ ] Setup folder structure following Clean Architecture
-- [ ] Configure environment management (`dotenv`, `.env.example`)
-- [ ] Setup PostgreSQL connection with `pg` (raw) or `Knex.js` as query builder
-- [ ] Write base migration runner (using `node-pg-migrate` or `Knex migrations`)
-- [ ] Create shared error classes: `AppError`, `NotFoundError`, `ValidationError`, `UnauthorizedError`
-- [ ] Create base response wrapper: `ApiResponse<T>` with `success`, `data`, `message`, `pagination`
-- [ ] Setup global error handler middleware in Express
-- [ ] Setup request logger (Morgan or custom)
-- [ ] Configure `Jest` + `Supertest` for unit and integration tests
-- [ ] Write a health check endpoint: `GET /api/health`
-- [ ] Setup Docker Compose for local PostgreSQL
+- [x] Initialize Node.js project with TypeScript (`tsconfig.json`, strict mode)
+- [x] Configure ESLint + Prettier + Husky (pre-commit hooks)
+- [x] Setup folder structure following Clean Architecture
+- [x] Configure environment management (`dotenv`, `.env.example`)
+- [x] Setup PostgreSQL connection with Knex.js as query builder
+- [x] Write base migration runner (Knex migrations)
+- [x] Create shared error classes: `AppError`, `NotFoundError`, `ValidationError`, `UnauthorizedError`
+- [x] Create base response wrapper: `ApiResponse<T>` with `success`, `data`, `message`, `pagination`
+- [x] Setup global error handler middleware in Express
+- [x] Setup request logger (Winston, with request ID)
+- [x] Configure `Jest` + `Supertest` for unit and integration tests
+- [x] Write a health check endpoint: `GET /api/v1/health`
+- [x] Setup Docker Compose for local PostgreSQL
 
 ### Deliverables
 - Running Express server with clean folder structure
@@ -50,7 +116,7 @@ src/
 
 ---
 
-## Phase 1 — Authentication & User Management
+## Phase 1 — Authentication & User Management ✅ DONE
 
 **Goal:** Users can register/login via Google OAuth2, manage their profile.
 
@@ -77,12 +143,12 @@ src/
 
 ### Presentation
 - Routes:
-  - `GET  /api/auth/google` — redirect to Google
-  - `GET  /api/auth/google/callback` — OAuth callback
-  - `POST /api/auth/refresh` — refresh access token
-  - `POST /api/auth/logout` — logout
-  - `GET  /api/users/me` — get profile (protected)
-  - `PUT  /api/users/me` — update profile (protected)
+  - `GET  /api/v1/auth/google` — redirect to Google
+  - `GET  /api/v1/auth/google/callback` — OAuth callback
+  - `POST /api/v1/auth/refresh` — refresh access token
+  - `POST /api/v1/auth/logout` — logout
+  - `GET  /api/v1/users/me` — get profile (protected)
+  - `PUT  /api/v1/users/me` — update profile (protected)
 - Middlewares:
   - `authenticate` — verify JWT, attach `req.user`
   - `validate` — Zod/Joi schema validation
@@ -95,7 +161,7 @@ refresh_tokens (id, user_id, token_hash, expires_at, created_at)
 
 ---
 
-## Phase 2 — Product Catalog
+## Phase 2 — Product Catalog ✅ DONE
 
 **Goal:** Admin can manage products; users can browse, search, and filter.
 
@@ -124,13 +190,13 @@ refresh_tokens (id, user_id, token_hash, expires_at, created_at)
 
 ### Presentation
 - Routes:
-  - `GET  /api/products` — list with filters & pagination
-  - `GET  /api/products/:slug` — product detail
-  - `GET  /api/categories` — list categories
-  - `POST /api/admin/products` — create (admin)
-  - `PUT  /api/admin/products/:id` — update (admin)
-  - `DELETE /api/admin/products/:id` — delete (admin)
-  - `POST /api/admin/categories` — create category (admin)
+  - `GET  /api/v1/products` — list with filters & pagination
+  - `GET  /api/v1/products/:slug` — product detail
+  - `GET  /api/v1/categories` — list categories
+  - `POST /api/v1/admin/products` — create (admin)
+  - `PUT  /api/v1/admin/products/:id` — update (admin)
+  - `DELETE /api/v1/admin/products/:id` — delete (admin)
+  - `POST /api/v1/admin/categories` — create category (admin)
 - Middlewares: `authorizeAdmin` — check `req.user.role === 'admin'`
 
 ### Database Tables
@@ -148,7 +214,7 @@ product_images (id, product_id, url, is_primary, sort_order)
 
 ---
 
-## Phase 3 — Shopping Cart
+## Phase 3 — Shopping Cart ✅ DONE
 
 **Goal:** Authenticated users can manage a persistent shopping cart.
 
@@ -172,11 +238,11 @@ product_images (id, product_id, url, is_primary, sort_order)
 
 ### Presentation
 - Routes (all protected):
-  - `GET    /api/cart` — get cart
-  - `POST   /api/cart/items` — add item
-  - `PUT    /api/cart/items/:itemId` — update quantity
-  - `DELETE /api/cart/items/:itemId` — remove item
-  - `DELETE /api/cart` — clear cart
+  - `GET    /api/v1/cart` — get cart
+  - `POST   /api/v1/cart/items` — add item
+  - `PUT    /api/v1/cart/items/:itemId` — update quantity
+  - `DELETE /api/v1/cart/items/:itemId` — remove item
+  - `DELETE /api/v1/cart` — clear cart
 
 ### Database Tables
 ```sql
@@ -188,7 +254,7 @@ cart_items (id, cart_id, product_id, quantity, price_snapshot, created_at)
 
 ---
 
-## Phase 4 — Orders & Checkout
+## Phase 4 — Orders & Checkout ✅ DONE
 
 **Goal:** Users can place orders, choose payment method (COD first), track order status.
 
@@ -214,12 +280,12 @@ cart_items (id, cart_id, product_id, quantity, price_snapshot, created_at)
 
 ### Presentation
 - Routes:
-  - `POST /api/orders` — place order (protected)
-  - `GET  /api/orders` — list my orders (protected)
-  - `GET  /api/orders/:id` — order detail (protected)
-  - `PUT  /api/orders/:id/cancel` — cancel order (protected)
-  - `GET  /api/admin/orders` — all orders (admin)
-  - `PUT  /api/admin/orders/:id/status` — update status (admin)
+  - `POST /api/v1/orders` — place order (protected)
+  - `GET  /api/v1/orders` — list my orders (protected)
+  - `GET  /api/v1/orders/:id` — order detail (protected)
+  - `PUT  /api/v1/orders/:id/cancel` — cancel order (protected)
+  - `GET  /api/v1/admin/orders` — all orders (admin)
+  - `PUT  /api/v1/admin/orders/:id/status` — update status (admin)
 
 ### Database Tables
 ```sql
@@ -235,7 +301,7 @@ order_items (id, order_id, product_id, product_name_snapshot, product_image_snap
 
 ---
 
-## Phase 5 — Admin Dashboard APIs
+## Phase 5 — Admin Dashboard APIs ✅ DONE
 
 **Goal:** Full management APIs for admin panel.
 
@@ -252,12 +318,12 @@ order_items (id, order_id, product_id, product_name_snapshot, product_image_snap
   - `GetDashboardStatsUseCase` — total revenue, orders today, low stock alerts, recent orders
 
 ### New Routes
-- `GET  /api/admin/dashboard/stats`
-- `GET  /api/admin/inventory`
-- `PUT  /api/admin/inventory/:productId/adjust`
-- `GET  /api/admin/users`
-- `PUT  /api/admin/users/:id/ban`
-- `GET  /api/admin/orders/export` (CSV)
+- `GET  /api/v1/admin/dashboard/stats`
+- `GET  /api/v1/admin/inventory`
+- `PUT  /api/v1/admin/inventory/:productId/adjust`
+- `GET  /api/v1/admin/users`
+- `PUT  /api/v1/admin/users/:id/ban`
+- `GET  /api/v1/admin/orders/export` (CSV)
 
 ### Database Tables
 ```sql
@@ -289,11 +355,11 @@ stock_adjustments (id, product_id, admin_id, quantity_change, reason, created_at
   - `RefundPaymentUseCase` (admin)
 
 ### Routes
-- `POST /api/payments/vnpay/initiate`
-- `GET  /api/payments/vnpay/callback` (VNPay redirect)
-- `POST /api/payments/vnpay/ipn` (VNPay server-to-server, no auth)
-- `POST /api/payments/momo/initiate`
-- `POST /api/payments/momo/callback`
+- `POST /api/v1/payments/vnpay/initiate`
+- `GET  /api/v1/payments/vnpay/callback` (VNPay redirect)
+- `POST /api/v1/payments/vnpay/ipn` (VNPay server-to-server, no auth)
+- `POST /api/v1/payments/momo/initiate`
+- `POST /api/v1/payments/momo/callback`
 
 ### Database Tables
 ```sql
@@ -323,13 +389,16 @@ payments (id, order_id, provider, provider_transaction_id, amount, status, raw_r
 - Coverage target: 80%+ on domain + application layers
 
 ### API Standards
+
+All routes **must** use the `/api/v1/` prefix.
+
 ```
-GET    /api/resources           → list (paginated)
-GET    /api/resources/:id       → single
-POST   /api/resources           → create
-PUT    /api/resources/:id       → full update
-PATCH  /api/resources/:id       → partial update
-DELETE /api/resources/:id       → delete
+GET    /api/v1/resources           → list (paginated)
+GET    /api/v1/resources/:id       → single
+POST   /api/v1/resources           → create
+PUT    /api/v1/resources/:id       → full update
+PATCH  /api/v1/resources/:id       → partial update
+DELETE /api/v1/resources/:id       → delete
 
 Response envelope:
 {
@@ -345,6 +414,21 @@ Error envelope:
   "error": { "code": "PRODUCT_NOT_FOUND", "message": "...", "details": [] }
 }
 ```
+
+### Swagger / OpenAPI Documentation
+
+**Rule:** After completing each phase, add Swagger documentation for all new endpoints.
+
+- Library: `swagger-ui-express` + `swagger-jsdoc`
+- Docs available at: `GET /api/v1/docs`
+- Annotate every route handler with JSDoc `@swagger` blocks
+- Document request bodies, query params, path params, and all response schemas
+- Group tags by domain (e.g. `Auth`, `Products`, `Cart`, `Orders`)
+- The Swagger spec must stay in sync with the actual implementation — never leave it outdated
+
+### Phase Status Convention
+
+**Rule:** After implementing a phase, immediately update its heading in this file to `✅ DONE` and check off all completed tasks (`- [x]`). Phases not yet started remain as-is.
 
 ---
 

@@ -1,0 +1,63 @@
+import { Router, Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
+import { ProductRepository } from '../../infrastructure/repositories/ProductRepository';
+import { CategoryRepository } from '../../infrastructure/repositories/CategoryRepository';
+import { ListProductsUseCase } from '../../application/use-cases/product/ListProductsUseCase';
+import { GetProductDetailUseCase } from '../../application/use-cases/product/GetProductDetailUseCase';
+import { ListCategoriesUseCase } from '../../application/use-cases/category/ListCategoriesUseCase';
+import { ApiResponse } from '../../shared/response/ApiResponse';
+import { ValidationError } from '../../shared/errors/AppError';
+
+const router = Router();
+const productRepo = new ProductRepository();
+const categoryRepo = new CategoryRepository();
+
+const productFilterSchema = z.object({
+  categoryId: z.string().uuid().optional(),
+  minPrice: z.coerce.number().int().min(0).optional(),
+  maxPrice: z.coerce.number().int().min(0).optional(),
+  inStock: z
+    .enum(['true', 'false'])
+    .transform((v) => v === 'true')
+    .optional(),
+  search: z.string().max(100).optional(),
+  sort: z.enum(['price_asc', 'price_desc', 'newest', 'name']).optional(),
+  page: z.coerce.number().int().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(50).optional(),
+});
+
+router.get('/', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const parsed = productFilterSchema.safeParse(req.query);
+    if (!parsed.success) throw new ValidationError('Invalid query params');
+    const useCase = new ListProductsUseCase(productRepo);
+    const page = parsed.data.page ?? 1;
+    const limit = parsed.data.limit ?? 20;
+    const { data, total } = await useCase.execute({ ...parsed.data, page, limit });
+    res.json(ApiResponse.paginated(data, total, page, limit));
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/categories/all', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const useCase = new ListCategoriesUseCase(categoryRepo);
+    const categories = await useCase.execute();
+    res.json(ApiResponse.success(categories));
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/:slug', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const useCase = new GetProductDetailUseCase(productRepo);
+    const product = await useCase.execute(req.params.slug);
+    res.json(ApiResponse.success(product));
+  } catch (err) {
+    next(err);
+  }
+});
+
+export default router;
