@@ -12,6 +12,110 @@ const router = Router();
 const productRepo = new ProductRepository();
 const categoryRepo = new CategoryRepository();
 
+/**
+ * @swagger
+ * /api/v1/products:
+ *   get:
+ *     tags: [Products]
+ *     summary: List products with filters and pagination
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *           maximum: 50
+ *         description: Items per page
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *           maxLength: 100
+ *         description: Search by product name
+ *       - in: query
+ *         name: categoryId
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Filter by category ID
+ *       - in: query
+ *         name: minPrice
+ *         schema:
+ *           type: integer
+ *           minimum: 0
+ *         description: Minimum price (VND)
+ *       - in: query
+ *         name: maxPrice
+ *         schema:
+ *           type: integer
+ *           minimum: 0
+ *         description: Maximum price (VND)
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *           enum: [price_asc, price_desc, newest, name]
+ *         description: Sort order
+ *       - in: query
+ *         name: inStock
+ *         schema:
+ *           type: string
+ *           enum: [true, false]
+ *         description: Filter by stock availability
+ *     responses:
+ *       200:
+ *         description: Paginated product list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiSuccess'
+ *                 - type: object
+ *                   properties:
+ *                     pagination:
+ *                       $ref: '#/components/schemas/Pagination'
+ *       400:
+ *         description: Invalid query parameters
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
+
+/**
+ * @swagger
+ * /api/v1/products/{slug}:
+ *   get:
+ *     tags: [Products]
+ *     summary: Get product detail by slug
+ *     parameters:
+ *       - in: path
+ *         name: slug
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Product slug
+ *     responses:
+ *       200:
+ *         description: Product detail
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiSuccess'
+ *       404:
+ *         description: Product not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
+
 const productFilterSchema = z.object({
   categoryId: z.string().uuid().optional(),
   minPrice: z.coerce.number().int().min(0).optional(),

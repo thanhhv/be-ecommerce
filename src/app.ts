@@ -6,6 +6,8 @@ import cookieParser from 'cookie-parser';
 import passport from 'passport';
 import dotenv from 'dotenv';
 import path from 'path';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from './infrastructure/swagger/swaggerConfig';
 
 import { requestIdMiddleware, requestLogger } from './presentation/middlewares/requestLogger';
 import { errorHandler } from './presentation/middlewares/errorHandler';
@@ -59,6 +61,9 @@ export function createApp(): Application {
   app.use('/api/v1/admin', adminDashboardRouter);
   app.use('/api/v1/cart', cartRouter);
   app.use('/api/v1/orders', orderRouter);
+
+  app.use('/api/v1/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+  app.get('/api/v1/docs.json', (_req: Request, res: Response) => res.json(swaggerSpec));
 
   app.use((_req: Request, res: Response) => {
     res.status(404).json(ApiResponse.error('NOT_FOUND', 'Route not found'));

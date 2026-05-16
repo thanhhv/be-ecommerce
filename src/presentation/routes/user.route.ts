@@ -10,6 +10,92 @@ import { ValidationError } from '../../shared/errors/AppError';
 const router = Router();
 const userRepo = new UserRepository();
 
+/**
+ * @swagger
+ * /api/v1/users/me:
+ *   get:
+ *     tags: [Users]
+ *     summary: Get my profile
+ *     description: Returns the authenticated user's profile
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiSuccess'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: string
+ *                           format: uuid
+ *                         email:
+ *                           type: string
+ *                         name:
+ *                           type: string
+ *                         phone:
+ *                           type: string
+ *                         address:
+ *                           type: string
+ *                         avatar:
+ *                           type: string
+ *                         role:
+ *                           type: string
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *   put:
+ *     tags: [Users]
+ *     summary: Update my profile
+ *     description: Updates the authenticated user's profile information
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 maxLength: 255
+ *               phone:
+ *                 type: string
+ *                 maxLength: 50
+ *               address:
+ *                 type: string
+ *                 maxLength: 500
+ *     responses:
+ *       200:
+ *         description: Profile updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiSuccess'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
+
 const updateProfileSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   phone: z.string().max(50).optional(),
