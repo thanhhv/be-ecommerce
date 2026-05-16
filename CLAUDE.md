@@ -1,3 +1,69 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+---
+
+## Commands
+
+```bash
+# Development
+npm run dev              # Start with ts-node-dev (hot reload)
+npm run build            # Compile TypeScript → dist/
+npm start                # Run compiled output
+
+# Code quality
+npm run lint             # ESLint on src/ and tests/
+npm run lint:fix         # Auto-fix ESLint issues
+npm run format           # Prettier on src/ and tests/
+
+# Testing
+npm test                 # All tests
+npm run test:unit        # tests/unit/ only
+npm run test:e2e         # tests/e2e/ only
+npm run test:coverage    # With coverage report (80% threshold)
+
+# Database
+docker compose up -d                              # Start PostgreSQL
+npm run migrate:latest                            # Run pending migrations
+npm run migrate:rollback                          # Roll back last migration
+npm run migrate:make -- <name>                    # Create new migration file
+```
+
+## Architecture
+
+This project follows **Clean Architecture** with strict one-way dependency rules:
+
+```
+Presentation → Application → Domain ← Infrastructure
+```
+
+- **Domain** (`src/domain/`) — pure business logic; no framework deps, no DB. Entities, value objects, repository *interfaces*.
+- **Application** (`src/application/`) — use cases and DTOs. Depends only on Domain interfaces; never touches DB directly.
+- **Infrastructure** (`src/infrastructure/`) — implements Domain interfaces. All DB access lives here (Knex queries). `src/infrastructure/database/knex.ts` exports the singleton `db` instance.
+- **Presentation** (`src/presentation/`) — Express routes, controllers, middlewares, Zod validators. Calls application use cases only.
+- **Shared** (`src/shared/`) — cross-cutting code any layer may use: `AppError` hierarchy, `ApiResponse` factory, Winston logger.
+
+## Key Conventions
+
+**Routes** — all routes use the `/api/v1/` prefix. Mount new routers in `src/app.ts`.
+
+**Response shape** — always use `ApiResponse.success()`, `ApiResponse.error()`, or `ApiResponse.paginated()` from `src/shared/response/ApiResponse.ts`. Never return raw objects from controllers.
+
+**Errors** — throw subclasses of `AppError` (`NotFoundError`, `ValidationError`, `UnauthorizedError`, `ForbiddenError`, `ConflictError`) from `src/shared/errors/AppError.ts`. The global `errorHandler` middleware converts them to the standard error envelope automatically.
+
+**Migrations** — create with `npm run migrate:make -- <snake_case_name>`. File goes to `migrations/` with a timestamp prefix. Implement both `up` and `down`.
+
+**Swagger** — after completing each phase, add `@swagger` JSDoc annotations to every new route handler and expose the spec at `GET /api/v1/docs` using `swagger-ui-express` + `swagger-jsdoc`.
+
+**Phase status** — after implementing a phase, mark its CLAUDE.md heading `✅ DONE` and check all its tasks (`- [x]`).
+
+**Type augmentation** — Express `Request` extensions (e.g. `req.requestId`, `req.user`) are declared in `src/types/express.d.ts`.
+
+**Tests** — unit tests in `tests/unit/`, E2E (Supertest) in `tests/e2e/`. Global setup in `tests/setup.ts` sets `NODE_ENV=test`.
+
+---
+
 # E-Commerce Backend Roadmap
 **Stack:** Node.js + Express + PostgreSQL  
 **Architecture:** Clean Architecture (Presentation → Application → Domain → Infrastructure)
@@ -50,7 +116,7 @@ src/
 
 ---
 
-## Phase 1 — Authentication & User Management
+## Phase 1 — Authentication & User Management ✅ DONE
 
 **Goal:** Users can register/login via Google OAuth2, manage their profile.
 
@@ -95,7 +161,7 @@ refresh_tokens (id, user_id, token_hash, expires_at, created_at)
 
 ---
 
-## Phase 2 — Product Catalog
+## Phase 2 — Product Catalog ✅ DONE
 
 **Goal:** Admin can manage products; users can browse, search, and filter.
 
@@ -148,7 +214,7 @@ product_images (id, product_id, url, is_primary, sort_order)
 
 ---
 
-## Phase 3 — Shopping Cart
+## Phase 3 — Shopping Cart ✅ DONE
 
 **Goal:** Authenticated users can manage a persistent shopping cart.
 
@@ -188,7 +254,7 @@ cart_items (id, cart_id, product_id, quantity, price_snapshot, created_at)
 
 ---
 
-## Phase 4 — Orders & Checkout
+## Phase 4 — Orders & Checkout ✅ DONE
 
 **Goal:** Users can place orders, choose payment method (COD first), track order status.
 
@@ -235,7 +301,7 @@ order_items (id, order_id, product_id, product_name_snapshot, product_image_snap
 
 ---
 
-## Phase 5 — Admin Dashboard APIs
+## Phase 5 — Admin Dashboard APIs ✅ DONE
 
 **Goal:** Full management APIs for admin panel.
 
