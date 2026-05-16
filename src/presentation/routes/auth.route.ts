@@ -7,6 +7,8 @@ import { GoogleOAuthUseCase } from '../../application/use-cases/auth/GoogleOAuth
 import { RefreshTokenUseCase } from '../../application/use-cases/auth/RefreshTokenUseCase';
 import { LogoutUseCase } from '../../application/use-cases/auth/LogoutUseCase';
 import { AdminLoginUseCase } from '../../application/use-cases/auth/AdminLoginUseCase';
+import { RegisterUseCase } from '../../application/use-cases/auth/RegisterUseCase';
+import { UserLoginUseCase } from '../../application/use-cases/auth/UserLoginUseCase';
 import { ApiResponse } from '../../shared/response/ApiResponse';
 import { ValidationError } from '../../shared/errors/AppError';
 
@@ -179,6 +181,19 @@ const adminLoginSchema = z.object({
   password: z.string().min(1),
 });
 
+const registerSchema = z.object({
+  name: z.string().min(1),
+  email: z.string().email(),
+  password: z.string().min(6),
+  phone: z.string().optional(),
+  address: z.string().optional(),
+});
+
+const userLoginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+});
+
 const REFRESH_COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
@@ -245,6 +260,199 @@ router.post('/admin/login', async (req: Request, res: Response, next: NextFuncti
     const { accessToken, admin, rawRefreshToken } = await useCase.execute(parsed.data);
     res.cookie('refresh_token', rawRefreshToken, REFRESH_COOKIE_OPTIONS);
     res.json(ApiResponse.success({ accessToken, admin }, 'Admin login successful'));
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * @swagger
+ * /api/v1/auth/register:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Register a new user with email and password
+ *     description: Creates a local user account with email/password credentials. Returns access token and sets refresh token cookie.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - email
+ *               - password
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 minLength: 1
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *                 minLength: 6
+ *               phone:
+ *                 type: string
+ *               address:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Registration successful
+ *         headers:
+ *           Set-Cookie:
+ *             description: httpOnly refresh_token cookie (7d)
+ *             schema:
+ *               type: string
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiSuccess'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         accessToken:
+ *                           type: string
+ *                         user:
+ *                           type: object
+ *                           properties:
+ *                             id:
+ *                               type: string
+ *                               format: uuid
+ *                             name:
+ *                               type: string
+ *                             email:
+ *                               type: string
+ *                             phone:
+ *                               type: string
+ *                               nullable: true
+ *                             address:
+ *                               type: string
+ *                               nullable: true
+ *                             role:
+ *                               type: string
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       409:
+ *         description: Email already taken
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
+router.post('/register', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const parsed = registerSchema.safeParse(req.body);
+    if (!parsed.success)
+      throw new ValidationError('Invalid registration data', parsed.error.errors);
+    const useCase = new RegisterUseCase(userRepo, tokenRepo);
+    const { accessToken, user, rawRefreshToken } = await useCase.execute(parsed.data);
+    res.cookie('refresh_token', rawRefreshToken, REFRESH_COOKIE_OPTIONS);
+    res.status(201).json(ApiResponse.success({ accessToken, user }, 'Registration successful'));
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * @swagger
+ * /api/v1/auth/login:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Login with email and password
+ *     description: Authenticates a local user account. Returns access token and sets refresh token cookie.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *                 minLength: 1
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         headers:
+ *           Set-Cookie:
+ *             description: httpOnly refresh_token cookie (7d)
+ *             schema:
+ *               type: string
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiSuccess'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         accessToken:
+ *                           type: string
+ *                         user:
+ *                           type: object
+ *                           properties:
+ *                             id:
+ *                               type: string
+ *                               format: uuid
+ *                             name:
+ *                               type: string
+ *                               nullable: true
+ *                             email:
+ *                               type: string
+ *                             phone:
+ *                               type: string
+ *                               nullable: true
+ *                             address:
+ *                               type: string
+ *                               nullable: true
+ *                             avatarUrl:
+ *                               type: string
+ *                               nullable: true
+ *                             role:
+ *                               type: string
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       401:
+ *         description: Invalid credentials or Google account
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       403:
+ *         description: Account is banned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
+router.post('/login', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const parsed = userLoginSchema.safeParse(req.body);
+    if (!parsed.success) throw new ValidationError('Invalid login data', parsed.error.errors);
+    const useCase = new UserLoginUseCase(userRepo, tokenRepo);
+    const { accessToken, user, rawRefreshToken } = await useCase.execute(parsed.data);
+    res.cookie('refresh_token', rawRefreshToken, REFRESH_COOKIE_OPTIONS);
+    res.json(ApiResponse.success({ accessToken, user }, 'Login successful'));
   } catch (err) {
     next(err);
   }

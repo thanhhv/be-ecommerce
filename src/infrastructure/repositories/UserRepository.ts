@@ -3,6 +3,7 @@ import { db } from '../database/knex';
 import {
   IUserRepository,
   CreateUserData,
+  CreateLocalUserData,
   UpdateUserData,
 } from '../../domain/repositories/IUserRepository';
 import { User } from '../../domain/entities/User';
@@ -17,9 +18,10 @@ export class UserRepository implements IUserRepository {
       address: (row.address as string) ?? null,
       avatarUrl: (row.avatar_url as string) ?? null,
       provider: row.provider as string,
-      providerId: row.provider_id as string,
+      providerId: (row.provider_id as string) ?? null,
       role: row.role as 'user' | 'admin',
       isBanned: row.is_banned as boolean,
+      passwordHash: (row.password_hash as string) ?? null,
       createdAt: new Date(row.created_at as string),
       updatedAt: new Date(row.updated_at as string),
     };
@@ -51,6 +53,25 @@ export class UserRepository implements IUserRepository {
         provider: data.provider,
         provider_id: data.providerId,
         role: data.role || 'user',
+      })
+      .returning('*');
+    return this.toEntity(row);
+  }
+
+  async createLocal(data: CreateLocalUserData): Promise<User> {
+    const id = data.id || uuidv4();
+    const [row] = await db('users')
+      .insert({
+        id,
+        email: data.email,
+        name: data.name,
+        phone: data.phone ?? null,
+        address: data.address ?? null,
+        password_hash: data.passwordHash,
+        provider: 'local',
+        provider_id: null,
+        role: 'user',
+        is_banned: false,
       })
       .returning('*');
     return this.toEntity(row);
