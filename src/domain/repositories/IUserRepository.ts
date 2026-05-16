@@ -24,4 +24,5 @@ export interface IUserRepository {
   update(id: string, data: UpdateUserData): Promise<User>;
   findAll(page: number, limit: number): Promise<{ data: User[]; total: number }>;
   ban(id: string): Promise<User>;
+  unban(id: string): Promise<User>;
 }

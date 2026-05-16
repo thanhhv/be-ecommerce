@@ -8,6 +8,7 @@ import { GetInventoryUseCase } from '../../application/use-cases/admin/GetInvent
 import { AdjustStockUseCase } from '../../application/use-cases/admin/AdjustStockUseCase';
 import { ListUsersUseCase } from '../../application/use-cases/admin/ListUsersUseCase';
 import { BanUserUseCase } from '../../application/use-cases/admin/BanUserUseCase';
+import { UnbanUserUseCase } from '../../application/use-cases/admin/UnbanUserUseCase';
 import { ApiResponse } from '../../shared/response/ApiResponse';
 import { ValidationError } from '../../shared/errors/AppError';
 import { db } from '../../infrastructure/database/knex';
@@ -264,6 +265,119 @@ const userRepo = new UserRepository();
 
 /**
  * @swagger
+ * /api/v1/admin/users/{id}/unban:
+ *   put:
+ *     tags: [Admin - Dashboard]
+ *     summary: Unban a user (admin)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: User ID
+ *     responses:
+ *       200:
+ *         description: User unbanned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiSuccess'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       403:
+ *         description: Forbidden - admin only or cannot unban yourself
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       404:
+ *         description: User not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
+
+/**
+ * @swagger
+ * /api/v1/admin/inventory/{productId}/history:
+ *   get:
+ *     tags: [Admin - Dashboard]
+ *     summary: Get stock adjustment history for a product (admin)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Product ID
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *     responses:
+ *       200:
+ *         description: Paginated inventory history
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiSuccess'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                             format: uuid
+ *                           quantityChange:
+ *                             type: integer
+ *                           reason:
+ *                             type: string
+ *                           adminName:
+ *                             type: string
+ *                             nullable: true
+ *                           createdAt:
+ *                             type: string
+ *                             format: date-time
+ *                     pagination:
+ *                       $ref: '#/components/schemas/Pagination'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       403:
+ *         description: Forbidden - admin only
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
+
+/**
+ * @swagger
  * /api/v1/admin/orders/export:
  *   get:
  *     tags: [Admin - Orders]
@@ -361,6 +475,58 @@ router.put('/users/:id/ban', async (req: Request, res: Response, next: NextFunct
     next(err);
   }
 });
+
+router.put('/users/:id/unban', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const useCase = new UnbanUserUseCase(userRepo);
+    const user = await useCase.execute(req.params.id, req.user!.id);
+    res.json(ApiResponse.success(user, 'User unbanned'));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Inventory history
+router.get(
+  '/inventory/:productId/history',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const page = Math.max(1, parseInt(String(req.query.page ?? '1'), 10) || 1);
+      const limit = Math.max(1, parseInt(String(req.query.limit ?? '20'), 10) || 20);
+      const offset = (page - 1) * limit;
+
+      const [{ count }] = await db('stock_adjustments')
+        .where('product_id', req.params.productId)
+        .count('id as count');
+
+      const rows = await db('stock_adjustments as sa')
+        .leftJoin('users as u', 'u.id', 'sa.admin_id')
+        .where('sa.product_id', req.params.productId)
+        .orderBy('sa.created_at', 'desc')
+        .limit(limit)
+        .offset(offset)
+        .select(
+          'sa.id',
+          'sa.quantity_change',
+          'sa.reason',
+          'u.name as admin_name',
+          'sa.created_at',
+        );
+
+      const data = rows.map((r: Record<string, unknown>) => ({
+        id: r.id as string,
+        quantityChange: r.quantity_change as number,
+        reason: r.reason as string,
+        adminName: (r.admin_name as string | null) ?? null,
+        createdAt: new Date(r.created_at as string),
+      }));
+
+      res.json(ApiResponse.paginated(data, Number(count), page, limit));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 // Orders CSV export
 router.get('/orders/export', async (_req: Request, res: Response, next: NextFunction) => {

@@ -85,4 +85,12 @@ export class UserRepository implements IUserRepository {
       .returning('*');
     return this.toEntity(row);
   }
+
+  async unban(id: string): Promise<User> {
+    const [row] = await db('users')
+      .where({ id })
+      .update({ is_banned: false, updated_at: db.fn.now() })
+      .returning('*');
+    return this.toEntity(row);
+  }
 }

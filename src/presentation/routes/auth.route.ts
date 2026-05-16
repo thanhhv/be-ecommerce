@@ -1,11 +1,14 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import passport from 'passport';
+import { z } from 'zod';
 import { UserRepository } from '../../infrastructure/repositories/UserRepository';
 import { RefreshTokenRepository } from '../../infrastructure/repositories/RefreshTokenRepository';
 import { GoogleOAuthUseCase } from '../../application/use-cases/auth/GoogleOAuthUseCase';
 import { RefreshTokenUseCase } from '../../application/use-cases/auth/RefreshTokenUseCase';
 import { LogoutUseCase } from '../../application/use-cases/auth/LogoutUseCase';
+import { AdminLoginUseCase } from '../../application/use-cases/auth/AdminLoginUseCase';
 import { ApiResponse } from '../../shared/response/ApiResponse';
+import { ValidationError } from '../../shared/errors/AppError';
 
 const router = Router();
 const userRepo = new UserRepository();
@@ -97,6 +100,85 @@ const tokenRepo = new RefreshTokenRepository();
  *               $ref: '#/components/schemas/ApiSuccess'
  */
 
+/**
+ * @swagger
+ * /api/v1/auth/admin/login:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Admin email+password login
+ *     description: Authenticate as admin using ADMIN_EMAIL and ADMIN_PASSWORD env vars. Issues access token and sets refresh token cookie.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *                 minLength: 1
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         headers:
+ *           Set-Cookie:
+ *             description: httpOnly refresh_token cookie (7d)
+ *             schema:
+ *               type: string
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiSuccess'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         accessToken:
+ *                           type: string
+ *                         admin:
+ *                           type: object
+ *                           properties:
+ *                             id:
+ *                               type: string
+ *                               format: uuid
+ *                             name:
+ *                               type: string
+ *                               nullable: true
+ *                             email:
+ *                               type: string
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       401:
+ *         description: Invalid credentials
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       403:
+ *         description: Admin credentials not configured
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
+
+const adminLoginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+});
+
 const REFRESH_COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
@@ -150,6 +232,19 @@ router.post('/logout', async (req: Request, res: Response, next: NextFunction) =
     }
     res.clearCookie('refresh_token');
     res.json(ApiResponse.success(null, 'Logged out successfully'));
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/admin/login', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const parsed = adminLoginSchema.safeParse(req.body);
+    if (!parsed.success) throw new ValidationError('Invalid login data', parsed.error.errors);
+    const useCase = new AdminLoginUseCase(userRepo, tokenRepo);
+    const { accessToken, admin, rawRefreshToken } = await useCase.execute(parsed.data);
+    res.cookie('refresh_token', rawRefreshToken, REFRESH_COOKIE_OPTIONS);
+    res.json(ApiResponse.success({ accessToken, admin }, 'Admin login successful'));
   } catch (err) {
     next(err);
   }

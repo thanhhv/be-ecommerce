@@ -603,4 +603,78 @@ router.delete('/categories/:id', async (req: Request, res: Response, next: NextF
   }
 });
 
+/**
+ * @swagger
+ * /api/v1/admin/upload/image:
+ *   post:
+ *     tags: [Admin - Products]
+ *     summary: Upload a single image (admin)
+ *     description: Uploads a single image file and returns the public URL
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - image
+ *             properties:
+ *               image:
+ *                 type: string
+ *                 format: binary
+ *                 description: Image file (JPEG, PNG, or WebP, max 5 MB)
+ *     responses:
+ *       200:
+ *         description: Image uploaded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiSuccess'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         url:
+ *                           type: string
+ *                           description: Public URL of the uploaded image
+ *       400:
+ *         description: No file provided or invalid file type
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       403:
+ *         description: Forbidden - admin only
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
+router.post(
+  '/upload/image',
+  upload.single('image'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const file = req.file;
+      if (!file) {
+        throw new NotFoundError('No image file provided');
+      }
+      const url = await storageService.save(file);
+      res.json(ApiResponse.success({ url }, 'Image uploaded'));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 export default router;
