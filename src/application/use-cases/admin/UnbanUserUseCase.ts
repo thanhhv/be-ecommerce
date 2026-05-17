@@ -18,8 +18,10 @@ export class UnbanUserUseCase {
       email: unbanned.email,
       name: unbanned.name,
       phone: unbanned.phone,
+      avatar: unbanned.avatarUrl ?? null,
       role: unbanned.role,
-      isBanned: unbanned.isBanned,
+      status: 'ACTIVE',
+      ordersCount: 0,
       createdAt: unbanned.createdAt,
     };
   }

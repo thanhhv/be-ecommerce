@@ -31,8 +31,19 @@ export function createApp(): Application {
   const app = express();
 
   app.use(helmet());
+  const allowedOrigins = (
+    process.env.CLIENT_ORIGIN || 'http://localhost:3000,http://localhost:3002'
+  )
+    .split(',')
+    .map((o) => o.trim());
   app.use(
-    cors({ credentials: true, origin: process.env.CLIENT_ORIGIN || 'http://localhost:3000' }),
+    cors({
+      credentials: true,
+      origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+        callback(new Error(`CORS: origin ${origin} not allowed`));
+      },
+    }),
   );
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
@@ -53,7 +64,14 @@ export function createApp(): Application {
   app.use('/api/v1/health', healthRouter);
   app.use('/api/v1/auth', authRouter);
   app.use('/api/v1/users', userRouter);
-  app.use('/uploads', express.static(path.resolve(process.env.UPLOAD_DIR || 'uploads')));
+  app.use(
+    '/uploads',
+    (_req, res, next) => {
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      next();
+    },
+    express.static(path.resolve(process.env.UPLOAD_DIR || 'uploads')),
+  );
   app.use('/api/v1/products', productRouter);
   app.use('/api/v1/categories', categoryRouter);
   app.use('/api/v1/admin', adminProductRouter);

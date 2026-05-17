@@ -114,13 +114,23 @@ export class ProductRepository implements IProductRepository {
       countQuery = countQuery.whereRaw('name ILIKE ?', [`%${searchTerm}%`]);
     }
 
-    query = query.orderBy('created_at', 'desc');
+    query = query.orderBy('products.created_at', 'desc');
 
-    const [{ count }] = await countQuery.count('id as count');
-    const rows = await query.limit(limit).offset(offset).select('*');
+    const [{ count }] = await countQuery.count('products.id as count');
+    const rows = await query
+      .leftJoin(
+        'product_images as pi',
+        db.raw('pi.product_id = products.id AND pi.is_primary = true'),
+      )
+      .select('products.*', 'pi.url as primary_image_url')
+      .limit(limit)
+      .offset(offset);
 
     return {
-      data: rows.map((r: Record<string, unknown>) => this.toProduct(r)),
+      data: rows.map((r: Record<string, unknown>) => ({
+        ...this.toProduct(r),
+        primaryImageUrl: (r.primary_image_url as string) ?? null,
+      })),
       total: Number(count),
     };
   }

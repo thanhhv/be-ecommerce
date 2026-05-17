@@ -32,7 +32,12 @@ export interface IUserRepository {
   create(data: CreateUserData): Promise<User>;
   createLocal(data: CreateLocalUserData): Promise<User>;
   update(id: string, data: UpdateUserData): Promise<User>;
-  findAll(page: number, limit: number): Promise<{ data: User[]; total: number }>;
+  findAll(
+    page: number,
+    limit: number,
+    q?: string,
+    status?: string,
+  ): Promise<{ data: (User & { ordersCount: number })[]; total: number }>;
   ban(id: string): Promise<User>;
   unban(id: string): Promise<User>;
 }

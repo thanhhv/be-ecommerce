@@ -306,13 +306,39 @@ router.post(
       if (!parsed.success) throw new ValidationError('Invalid product data', parsed.error.errors);
       const useCase = new CreateProductUseCase(productRepo, categoryRepo, storageService);
       const files = (req.files as Express.Multer.File[]) ?? [];
-      const product = await useCase.execute(parsed.data, files);
+      const rawUrls = req.body.imageUrls;
+      const imageUrls: string[] = Array.isArray(rawUrls) ? rawUrls : rawUrls ? [rawUrls] : [];
+      const product = await useCase.execute(parsed.data, files, imageUrls);
       res.status(201).json(ApiResponse.success(product, 'Product created'));
     } catch (err) {
       next(err);
     }
   },
 );
+
+router.put('/products/:id/images', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const product = await productRepo.findById(req.params.id);
+    if (!product) throw new NotFoundError('Product');
+    const urls: string[] = req.body.urls ?? [];
+    await productRepo.deleteImages(req.params.id);
+    if (urls.length > 0) {
+      const { v4: uuidv4 } = await import('uuid');
+      await productRepo.addImages(
+        urls.map((url: string, idx: number) => ({
+          id: uuidv4(),
+          productId: req.params.id,
+          url,
+          isPrimary: idx === 0,
+          sortOrder: idx,
+        })),
+      );
+    }
+    res.json(ApiResponse.success(null, 'Images updated'));
+  } catch (err) {
+    next(err);
+  }
+});
 
 router.put('/products/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {

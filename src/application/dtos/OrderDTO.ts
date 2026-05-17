@@ -3,16 +3,19 @@ import { OrderStatus, PaymentMethod } from '../../domain/entities/Order';
 export interface OrderItemDTO {
   id: string;
   productId: string | null;
-  productNameSnapshot: string;
-  productImageSnapshot: string | null;
+  productName: string;
+  productImage: string | null;
   quantity: number;
   unitPrice: number;
-  totalPrice: number;
+  lineTotal: number;
 }
 
 export interface OrderDTO {
   id: string;
   userId: string;
+  customerName?: string;
+  customerEmail?: string;
+  customerPhone?: string | null;
   status: OrderStatus;
   paymentMethod: PaymentMethod;
   subtotal: number;
@@ -29,6 +32,7 @@ export interface OrderDTO {
 
 export interface OrderListItemDTO {
   id: string;
+  customerName?: string;
   status: OrderStatus;
   paymentMethod: PaymentMethod;
   total: number;

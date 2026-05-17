@@ -36,14 +36,22 @@ export interface OrderFilter {
   limit?: number;
 }
 
+export interface OrderWithCustomer extends OrderWithItems {
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string | null;
+}
+
 export interface IOrderRepository {
   create(data: CreateOrderData, items: CreateOrderItemData[]): Promise<OrderWithItems>;
-  findById(id: string): Promise<OrderWithItems | null>;
+  findById(id: string): Promise<OrderWithCustomer | null>;
   findByUserId(
     userId: string,
     page: number,
     limit: number,
   ): Promise<{ data: Order[]; total: number }>;
-  findAll(filter: OrderFilter): Promise<{ data: Order[]; total: number }>;
+  findAll(
+    filter: OrderFilter,
+  ): Promise<{ data: (Order & { customerName?: string; itemCount: number })[]; total: number }>;
   updateStatus(id: string, status: OrderStatus): Promise<Order>;
 }

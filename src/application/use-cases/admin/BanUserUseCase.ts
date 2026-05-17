@@ -19,8 +19,10 @@ export class BanUserUseCase {
       email: banned.email,
       name: banned.name,
       phone: banned.phone,
+      avatar: banned.avatarUrl ?? null,
       role: banned.role,
-      isBanned: banned.isBanned,
+      status: 'BANNED',
+      ordersCount: 0,
       createdAt: banned.createdAt,
     };
   }

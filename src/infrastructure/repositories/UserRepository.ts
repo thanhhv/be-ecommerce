@@ -85,16 +85,48 @@ export class UserRepository implements IUserRepository {
     return this.toEntity(row);
   }
 
-  async findAll(page: number, limit: number): Promise<{ data: User[]; total: number }> {
+  async findAll(
+    page: number,
+    limit: number,
+    q?: string,
+    status?: string,
+  ): Promise<{ data: (User & { ordersCount: number })[]; total: number }> {
     const offset = (page - 1) * limit;
-    const [{ count }] = await db('users').count('id as count');
-    const rows = await db('users')
+
+    let query = db('users').whereNot('role', 'admin');
+    let countQuery = db('users').whereNot('role', 'admin');
+
+    if (q) {
+      query = query.where((b) => b.whereILike('name', `%${q}%`).orWhereILike('email', `%${q}%`));
+      countQuery = countQuery.where((b) =>
+        b.whereILike('name', `%${q}%`).orWhereILike('email', `%${q}%`),
+      );
+    }
+    if (status === 'BANNED') {
+      query = query.where('is_banned', true);
+      countQuery = countQuery.where('is_banned', true);
+    } else if (status === 'ACTIVE') {
+      query = query.where('is_banned', false);
+      countQuery = countQuery.where('is_banned', false);
+    }
+
+    const [{ count }] = await countQuery.count('id as count');
+    const rows = await query
       .orderBy('created_at', 'desc')
       .limit(limit)
       .offset(offset)
-      .select('*');
+      .select(
+        'users.*',
+        db.raw(
+          '(SELECT COUNT(*) FROM orders WHERE orders.user_id = users.id)::int AS orders_count',
+        ),
+      );
+
     return {
-      data: rows.map((r: Record<string, unknown>) => this.toEntity(r)),
+      data: rows.map((r: Record<string, unknown>) => ({
+        ...this.toEntity(r),
+        ordersCount: (r.orders_count as number) ?? 0,
+      })),
       total: Number(count),
     };
   }

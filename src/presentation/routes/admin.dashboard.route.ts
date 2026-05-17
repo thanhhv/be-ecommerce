@@ -458,8 +458,10 @@ router.get('/users', async (req: Request, res: Response, next: NextFunction) => 
   try {
     const page = Number(req.query.page ?? 1);
     const limit = Number(req.query.limit ?? 20);
+    const q = req.query.q ? String(req.query.q) : undefined;
+    const status = req.query.status ? String(req.query.status) : undefined;
     const useCase = new ListUsersUseCase(userRepo);
-    const { data, total } = await useCase.execute(page, limit);
+    const { data, total } = await useCase.execute(page, limit, q, status);
     res.json(ApiResponse.paginated(data, total, page, limit));
   } catch (err) {
     next(err);

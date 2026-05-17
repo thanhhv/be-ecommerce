@@ -40,8 +40,10 @@ export interface AdminUserDTO {
   email: string;
   name: string | null;
   phone: string | null;
+  avatar: string | null;
   role: string;
-  isBanned: boolean;
+  status: 'ACTIVE' | 'BANNED';
+  ordersCount: number;
   createdAt: Date;
 }
 
