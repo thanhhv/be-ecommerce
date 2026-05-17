@@ -136,8 +136,10 @@ router.get('/orders', async (req: Request, res: Response, next: NextFunction) =>
     const page = Number(req.query.page ?? 1);
     const limit = Number(req.query.limit ?? 20);
     const status = req.query.status as OrderStatus | undefined;
+    const from = req.query.from ? String(req.query.from) : undefined;
+    const to = req.query.to ? String(req.query.to) : undefined;
     const useCase = new ListAllOrdersUseCase(orderRepo);
-    const { data, total } = await useCase.execute({ status, page, limit });
+    const { data, total } = await useCase.execute({ status, from, to, page, limit });
     res.json(ApiResponse.paginated(data, total, page, limit));
   } catch (err) {
     next(err);

@@ -424,6 +424,52 @@ router.get('/dashboard/stats', async (_req: Request, res: Response, next: NextFu
   }
 });
 
+// Revenue time-series for chart (DELIVERED orders grouped by day, Asia/Ho_Chi_Minh)
+router.get('/dashboard/revenue', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const days = Math.min(90, Math.max(1, Number(req.query.days ?? 30)));
+
+    // Compute the start-of-day in Vietnam time (UTC+7) without relying on server locale
+    const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
+    const nowVN = new Date(Date.now() + VN_OFFSET_MS);
+    // Midnight Vietnam = year/month/day at 00:00 VN = day - 17:00 UTC
+    const todayVN = new Date(
+      Date.UTC(nowVN.getUTCFullYear(), nowVN.getUTCMonth(), nowVN.getUTCDate()),
+    );
+    const sinceVN = new Date(todayVN);
+    sinceVN.setUTCDate(todayVN.getUTCDate() - days + 1);
+
+    // Use TO_CHAR so the key is always a plain 'YYYY-MM-DD' string regardless of pg driver settings
+    const rows: { day: string; revenue: string }[] = await db('orders')
+      .where('status', 'DELIVERED')
+      .where('created_at', '>=', sinceVN.toISOString())
+      .select(
+        db.raw(`TO_CHAR(DATE(created_at AT TIME ZONE 'Asia/Ho_Chi_Minh'), 'YYYY-MM-DD') AS day`),
+        db.raw('SUM(total) AS revenue'),
+      )
+      .groupBy('day')
+      .orderBy('day', 'asc');
+
+    const map = new Map<string, number>();
+    for (const r of rows) {
+      map.set(r.day, Number(r.revenue));
+    }
+
+    const result: { date: string; revenue: number }[] = [];
+    for (let i = 0; i < days; i++) {
+      const d = new Date(sinceVN);
+      d.setUTCDate(sinceVN.getUTCDate() + i);
+      const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+      const label = `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+      result.push({ date: label, revenue: map.get(key) ?? 0 });
+    }
+
+    res.json(ApiResponse.success(result));
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Inventory
 router.get('/inventory', async (req: Request, res: Response, next: NextFunction) => {
   try {

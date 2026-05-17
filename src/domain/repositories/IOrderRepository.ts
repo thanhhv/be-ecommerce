@@ -32,6 +32,8 @@ export interface CreateOrderItemData {
 export interface OrderFilter {
   userId?: string;
   status?: OrderStatus;
+  from?: string;
+  to?: string;
   page?: number;
   limit?: number;
 }

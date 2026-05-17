@@ -81,9 +81,7 @@ export class OrderRepository implements IOrderRepository {
     });
   }
 
-  async findById(
-    id: string,
-  ): Promise<
+  async findById(id: string): Promise<
     | (OrderWithItems & {
         customerName: string;
         customerEmail: string;
@@ -156,6 +154,21 @@ export class OrderRepository implements IOrderRepository {
     if (filter.status) {
       query = query.where('orders.status', filter.status);
       countQuery = countQuery.where('status', filter.status);
+    }
+    // Dates arrive as YYYY-MM-DD in Vietnam time (UTC+7).
+    // Convert to UTC boundaries for the DB query.
+    const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
+    if (filter.from) {
+      const fromUtc = new Date(new Date(filter.from + 'T00:00:00.000Z').getTime() - VN_OFFSET_MS);
+      query = query.where('orders.created_at', '>=', fromUtc);
+      countQuery = countQuery.where('created_at', '>=', fromUtc);
+    }
+    if (filter.to) {
+      const toUtc = new Date(
+        new Date(filter.to + 'T00:00:00.000Z').getTime() - VN_OFFSET_MS + 24 * 60 * 60 * 1000,
+      );
+      query = query.where('orders.created_at', '<', toUtc);
+      countQuery = countQuery.where('created_at', '<', toUtc);
     }
 
     const [{ count }] = await countQuery.count('id as count');

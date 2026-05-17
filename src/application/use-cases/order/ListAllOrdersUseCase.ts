@@ -7,6 +7,8 @@ export class ListAllOrdersUseCase {
 
   async execute(filter: {
     status?: OrderStatus;
+    from?: string;
+    to?: string;
     page?: number;
     limit?: number;
   }): Promise<{ data: OrderListItemDTO[]; total: number }> {
