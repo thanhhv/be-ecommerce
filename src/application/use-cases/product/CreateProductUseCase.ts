@@ -4,7 +4,7 @@ import { ICategoryRepository } from '../../../domain/repositories/ICategoryRepos
 import { IStorageService } from '../../../infrastructure/storage/IStorageService';
 import { Slug } from '../../../domain/value-objects/Slug';
 import { CreateProductDTO, ProductDetailDTO } from '../../dtos/ProductDTO';
-import { NotFoundError, ConflictError } from '../../../shared/errors/AppError';
+import { NotFoundError } from '../../../shared/errors/AppError';
 
 export class CreateProductUseCase {
   constructor(
@@ -13,13 +13,20 @@ export class CreateProductUseCase {
     private storageService: IStorageService,
   ) {}
 
-  async execute(dto: CreateProductDTO, files: Express.Multer.File[]): Promise<ProductDetailDTO> {
+  async execute(
+    dto: CreateProductDTO,
+    files: Express.Multer.File[],
+    imageUrls: string[] = [],
+  ): Promise<ProductDetailDTO> {
     const category = await this.categoryRepo.findById(dto.categoryId);
     if (!category) throw new NotFoundError('Category');
 
-    const slug = Slug.from(dto.name).toString();
+    let slug = Slug.from(dto.name).toString();
     const existing = await this.productRepo.findBySlug(slug);
-    if (existing) throw new ConflictError('A product with this name already exists');
+    if (existing) {
+      const suffix = Math.random().toString(36).slice(2, 6);
+      slug = `${slug}-${suffix}`;
+    }
 
     const productId = uuidv4();
     const product = await this.productRepo.create({
@@ -34,15 +41,23 @@ export class CreateProductUseCase {
       stock: dto.stock,
     });
 
-    const images = await Promise.all(
+    const fileImages = await Promise.all(
       files.map(async (file, idx) => ({
         id: uuidv4(),
         productId,
         url: await this.storageService.save(file),
-        isPrimary: idx === 0,
+        isPrimary: imageUrls.length === 0 && idx === 0,
         sortOrder: idx,
       })),
     );
+    const urlImages = imageUrls.map((url, idx) => ({
+      id: uuidv4(),
+      productId,
+      url,
+      isPrimary: fileImages.length === 0 && idx === 0,
+      sortOrder: fileImages.length + idx,
+    }));
+    const images = [...fileImages, ...urlImages];
     if (images.length > 0) {
       await this.productRepo.addImages(images);
     }

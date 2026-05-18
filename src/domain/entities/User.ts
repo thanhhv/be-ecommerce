@@ -8,9 +8,10 @@ export interface User {
   address: string | null;
   avatarUrl: string | null;
   provider: string;
-  providerId: string;
+  providerId: string | null;
   role: UserRole;
   isBanned: boolean;
+  passwordHash: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

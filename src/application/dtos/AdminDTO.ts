@@ -3,7 +3,10 @@ import { PaymentMethod } from '../../domain/entities/Order';
 
 export interface DashboardStatsDTO {
   totalRevenue: number;
+  totalRevenueThisMonth: number;
+  revenueChangePercent: number;
   ordersToday: number;
+  totalActiveProducts: number;
   totalUsers: number;
   lowStockProducts: Array<{
     id: string;
@@ -11,6 +14,7 @@ export interface DashboardStatsDTO {
     slug: string;
     stock: number;
   }>;
+  lowStockAlerts: number;
   recentOrders: Array<{
     id: string;
     status: OrderStatus;
@@ -36,8 +40,10 @@ export interface AdminUserDTO {
   email: string;
   name: string | null;
   phone: string | null;
+  avatar: string | null;
   role: string;
-  isBanned: boolean;
+  status: 'ACTIVE' | 'BANNED';
+  ordersCount: number;
   createdAt: Date;
 }
 

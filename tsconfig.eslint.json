@@ -1,5 +1,5 @@
 {
   "extends": "./tsconfig.json",
-  "include": ["src", "tests", "knexfile.ts", "jest.config.ts", "migrations"],
+  "include": ["src", "tests", "knexfile.ts", "jest.config.ts", "migrations", "seeds"],
   "exclude": ["node_modules", "dist"]
 }

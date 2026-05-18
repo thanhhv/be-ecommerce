@@ -39,9 +39,19 @@ export interface ProductWithImages extends Product {
   images: ProductImage[];
 }
 
+export interface AdminProductFilter {
+  page?: number;
+  limit?: number;
+  search?: string;
+  categoryId?: string;
+  isActive?: boolean;
+}
+
 export interface IProductRepository {
   findMany(filter: ProductFilter): Promise<{ data: Product[]; total: number }>;
+  findManyAdmin(filter: AdminProductFilter): Promise<{ data: Product[]; total: number }>;
   findBySlug(slug: string): Promise<ProductWithImages | null>;
+  findByIdWithImages(id: string): Promise<ProductWithImages | null>;
   findById(id: string): Promise<Product | null>;
   findRelated(categoryId: string, excludeId: string, limit?: number): Promise<Product[]>;
   create(data: CreateProductData): Promise<Product>;

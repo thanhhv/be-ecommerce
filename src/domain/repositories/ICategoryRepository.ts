@@ -11,4 +11,6 @@ export interface ICategoryRepository {
     parentId?: string;
     description?: string;
   }): Promise<Category>;
+  update(id: string, data: { name?: string; description?: string }): Promise<Category>;
+  delete(id: string): Promise<void>;
 }

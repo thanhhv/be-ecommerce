@@ -2,28 +2,27 @@ import { UserRepository } from '../../../infrastructure/repositories/UserReposit
 import { AdminUserDTO } from '../../dtos/AdminDTO';
 import { NotFoundError, ForbiddenError } from '../../../shared/errors/AppError';
 
-export class BanUserUseCase {
+export class UnbanUserUseCase {
   constructor(private userRepo: UserRepository) {}
 
   async execute(targetUserId: string, requesterId: string): Promise<AdminUserDTO> {
     if (targetUserId === requesterId) {
-      throw new ForbiddenError('Cannot ban yourself');
+      throw new ForbiddenError('Cannot unban yourself');
     }
     const user = await this.userRepo.findById(targetUserId);
     if (!user) throw new NotFoundError('User');
-    if (user.role === 'admin') throw new ForbiddenError('Cannot ban an admin user');
 
-    const banned = await this.userRepo.ban(targetUserId);
+    const unbanned = await this.userRepo.unban(targetUserId);
     return {
-      id: banned.id,
-      email: banned.email,
-      name: banned.name,
-      phone: banned.phone,
-      avatar: banned.avatarUrl ?? null,
-      role: banned.role,
-      status: 'BANNED',
+      id: unbanned.id,
+      email: unbanned.email,
+      name: unbanned.name,
+      phone: unbanned.phone,
+      avatar: unbanned.avatarUrl ?? null,
+      role: unbanned.role,
+      status: 'ACTIVE',
       ordersCount: 0,
-      createdAt: banned.createdAt,
+      createdAt: unbanned.createdAt,
     };
   }
 }

@@ -8,12 +8,403 @@ import { GetInventoryUseCase } from '../../application/use-cases/admin/GetInvent
 import { AdjustStockUseCase } from '../../application/use-cases/admin/AdjustStockUseCase';
 import { ListUsersUseCase } from '../../application/use-cases/admin/ListUsersUseCase';
 import { BanUserUseCase } from '../../application/use-cases/admin/BanUserUseCase';
+import { UnbanUserUseCase } from '../../application/use-cases/admin/UnbanUserUseCase';
 import { ApiResponse } from '../../shared/response/ApiResponse';
 import { ValidationError } from '../../shared/errors/AppError';
 import { db } from '../../infrastructure/database/knex';
 
 const router = Router();
 const userRepo = new UserRepository();
+
+/**
+ * @swagger
+ * /api/v1/admin/dashboard/stats:
+ *   get:
+ *     tags: [Admin - Dashboard]
+ *     summary: Get dashboard statistics (admin)
+ *     description: Returns revenue, order counts, low stock alerts, and recent orders
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Dashboard statistics
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiSuccess'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         totalRevenue:
+ *                           type: integer
+ *                           description: Total revenue in VND
+ *                         ordersToday:
+ *                           type: integer
+ *                         lowStockAlerts:
+ *                           type: integer
+ *                         recentOrders:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       403:
+ *         description: Forbidden - admin only
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
+
+/**
+ * @swagger
+ * /api/v1/admin/inventory:
+ *   get:
+ *     tags: [Admin - Dashboard]
+ *     summary: List inventory (admin)
+ *     description: Returns paginated list of products with current stock levels
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *     responses:
+ *       200:
+ *         description: Paginated inventory list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiSuccess'
+ *                 - type: object
+ *                   properties:
+ *                     pagination:
+ *                       $ref: '#/components/schemas/Pagination'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       403:
+ *         description: Forbidden - admin only
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
+
+/**
+ * @swagger
+ * /api/v1/admin/inventory/{productId}/adjust:
+ *   put:
+ *     tags: [Admin - Dashboard]
+ *     summary: Adjust product stock (admin)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Product ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - quantityChange
+ *               - reason
+ *             properties:
+ *               quantityChange:
+ *                 type: integer
+ *                 description: Positive to add stock, negative to remove
+ *               reason:
+ *                 type: string
+ *                 minLength: 1
+ *                 maxLength: 500
+ *     responses:
+ *       200:
+ *         description: Stock adjusted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiSuccess'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       403:
+ *         description: Forbidden - admin only
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       404:
+ *         description: Product not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
+
+/**
+ * @swagger
+ * /api/v1/admin/users:
+ *   get:
+ *     tags: [Admin - Dashboard]
+ *     summary: List all users (admin)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *     responses:
+ *       200:
+ *         description: Paginated user list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiSuccess'
+ *                 - type: object
+ *                   properties:
+ *                     pagination:
+ *                       $ref: '#/components/schemas/Pagination'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       403:
+ *         description: Forbidden - admin only
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
+
+/**
+ * @swagger
+ * /api/v1/admin/users/{id}/ban:
+ *   put:
+ *     tags: [Admin - Dashboard]
+ *     summary: Ban a user (admin)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: User ID
+ *     responses:
+ *       200:
+ *         description: User banned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiSuccess'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       403:
+ *         description: Forbidden - admin only
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       404:
+ *         description: User not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
+
+/**
+ * @swagger
+ * /api/v1/admin/users/{id}/unban:
+ *   put:
+ *     tags: [Admin - Dashboard]
+ *     summary: Unban a user (admin)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: User ID
+ *     responses:
+ *       200:
+ *         description: User unbanned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiSuccess'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       403:
+ *         description: Forbidden - admin only or cannot unban yourself
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       404:
+ *         description: User not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
+
+/**
+ * @swagger
+ * /api/v1/admin/inventory/{productId}/history:
+ *   get:
+ *     tags: [Admin - Dashboard]
+ *     summary: Get stock adjustment history for a product (admin)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Product ID
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *     responses:
+ *       200:
+ *         description: Paginated inventory history
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiSuccess'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                             format: uuid
+ *                           quantityChange:
+ *                             type: integer
+ *                           reason:
+ *                             type: string
+ *                           adminName:
+ *                             type: string
+ *                             nullable: true
+ *                           createdAt:
+ *                             type: string
+ *                             format: date-time
+ *                     pagination:
+ *                       $ref: '#/components/schemas/Pagination'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       403:
+ *         description: Forbidden - admin only
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
+
+/**
+ * @swagger
+ * /api/v1/admin/orders/export:
+ *   get:
+ *     tags: [Admin - Orders]
+ *     summary: Export orders as CSV (admin)
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: CSV file download
+ *         content:
+ *           text/csv:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       403:
+ *         description: Forbidden - admin only
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
 
 const adjustStockSchema = z.object({
   quantityChange: z.number().int(),
@@ -28,6 +419,52 @@ router.get('/dashboard/stats', async (_req: Request, res: Response, next: NextFu
     const useCase = new GetDashboardStatsUseCase();
     const stats = await useCase.execute();
     res.json(ApiResponse.success(stats));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Revenue time-series for chart (DELIVERED orders grouped by day, Asia/Ho_Chi_Minh)
+router.get('/dashboard/revenue', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const days = Math.min(90, Math.max(1, Number(req.query.days ?? 30)));
+
+    // Compute the start-of-day in Vietnam time (UTC+7) without relying on server locale
+    const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
+    const nowVN = new Date(Date.now() + VN_OFFSET_MS);
+    // Midnight Vietnam = year/month/day at 00:00 VN = day - 17:00 UTC
+    const todayVN = new Date(
+      Date.UTC(nowVN.getUTCFullYear(), nowVN.getUTCMonth(), nowVN.getUTCDate()),
+    );
+    const sinceVN = new Date(todayVN);
+    sinceVN.setUTCDate(todayVN.getUTCDate() - days + 1);
+
+    // Use TO_CHAR so the key is always a plain 'YYYY-MM-DD' string regardless of pg driver settings
+    const rows: { day: string; revenue: string }[] = await db('orders')
+      .where('status', 'DELIVERED')
+      .where('created_at', '>=', sinceVN.toISOString())
+      .select(
+        db.raw(`TO_CHAR(DATE(created_at AT TIME ZONE 'Asia/Ho_Chi_Minh'), 'YYYY-MM-DD') AS day`),
+        db.raw('SUM(total) AS revenue'),
+      )
+      .groupBy('day')
+      .orderBy('day', 'asc');
+
+    const map = new Map<string, number>();
+    for (const r of rows) {
+      map.set(r.day, Number(r.revenue));
+    }
+
+    const result: { date: string; revenue: number }[] = [];
+    for (let i = 0; i < days; i++) {
+      const d = new Date(sinceVN);
+      d.setUTCDate(sinceVN.getUTCDate() + i);
+      const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+      const label = `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+      result.push({ date: label, revenue: map.get(key) ?? 0 });
+    }
+
+    res.json(ApiResponse.success(result));
   } catch (err) {
     next(err);
   }
@@ -67,8 +504,10 @@ router.get('/users', async (req: Request, res: Response, next: NextFunction) => 
   try {
     const page = Number(req.query.page ?? 1);
     const limit = Number(req.query.limit ?? 20);
+    const q = req.query.q ? String(req.query.q) : undefined;
+    const status = req.query.status ? String(req.query.status) : undefined;
     const useCase = new ListUsersUseCase(userRepo);
-    const { data, total } = await useCase.execute(page, limit);
+    const { data, total } = await useCase.execute(page, limit, q, status);
     res.json(ApiResponse.paginated(data, total, page, limit));
   } catch (err) {
     next(err);
@@ -84,6 +523,58 @@ router.put('/users/:id/ban', async (req: Request, res: Response, next: NextFunct
     next(err);
   }
 });
+
+router.put('/users/:id/unban', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const useCase = new UnbanUserUseCase(userRepo);
+    const user = await useCase.execute(req.params.id, req.user!.id);
+    res.json(ApiResponse.success(user, 'User unbanned'));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Inventory history
+router.get(
+  '/inventory/:productId/history',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const page = Math.max(1, parseInt(String(req.query.page ?? '1'), 10) || 1);
+      const limit = Math.max(1, parseInt(String(req.query.limit ?? '20'), 10) || 20);
+      const offset = (page - 1) * limit;
+
+      const [{ count }] = await db('stock_adjustments')
+        .where('product_id', req.params.productId)
+        .count('id as count');
+
+      const rows = await db('stock_adjustments as sa')
+        .leftJoin('users as u', 'u.id', 'sa.admin_id')
+        .where('sa.product_id', req.params.productId)
+        .orderBy('sa.created_at', 'desc')
+        .limit(limit)
+        .offset(offset)
+        .select(
+          'sa.id',
+          'sa.quantity_change',
+          'sa.reason',
+          'u.name as admin_name',
+          'sa.created_at',
+        );
+
+      const data = rows.map((r: Record<string, unknown>) => ({
+        id: r.id as string,
+        quantityChange: r.quantity_change as number,
+        reason: r.reason as string,
+        adminName: (r.admin_name as string | null) ?? null,
+        createdAt: new Date(r.created_at as string),
+      }));
+
+      res.json(ApiResponse.paginated(data, Number(count), page, limit));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 // Orders CSV export
 router.get('/orders/export', async (_req: Request, res: Response, next: NextFunction) => {

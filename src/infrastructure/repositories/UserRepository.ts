@@ -3,6 +3,7 @@ import { db } from '../database/knex';
 import {
   IUserRepository,
   CreateUserData,
+  CreateLocalUserData,
   UpdateUserData,
 } from '../../domain/repositories/IUserRepository';
 import { User } from '../../domain/entities/User';
@@ -17,9 +18,10 @@ export class UserRepository implements IUserRepository {
       address: (row.address as string) ?? null,
       avatarUrl: (row.avatar_url as string) ?? null,
       provider: row.provider as string,
-      providerId: row.provider_id as string,
+      providerId: (row.provider_id as string) ?? null,
       role: row.role as 'user' | 'admin',
       isBanned: row.is_banned as boolean,
+      passwordHash: (row.password_hash as string) ?? null,
       createdAt: new Date(row.created_at as string),
       updatedAt: new Date(row.updated_at as string),
     };
@@ -56,6 +58,25 @@ export class UserRepository implements IUserRepository {
     return this.toEntity(row);
   }
 
+  async createLocal(data: CreateLocalUserData): Promise<User> {
+    const id = data.id || uuidv4();
+    const [row] = await db('users')
+      .insert({
+        id,
+        email: data.email,
+        name: data.name,
+        phone: data.phone ?? null,
+        address: data.address ?? null,
+        password_hash: data.passwordHash,
+        provider: 'local',
+        provider_id: null,
+        role: 'user',
+        is_banned: false,
+      })
+      .returning('*');
+    return this.toEntity(row);
+  }
+
   async update(id: string, data: UpdateUserData): Promise<User> {
     const [row] = await db('users')
       .where({ id })
@@ -64,16 +85,48 @@ export class UserRepository implements IUserRepository {
     return this.toEntity(row);
   }
 
-  async findAll(page: number, limit: number): Promise<{ data: User[]; total: number }> {
+  async findAll(
+    page: number,
+    limit: number,
+    q?: string,
+    status?: string,
+  ): Promise<{ data: (User & { ordersCount: number })[]; total: number }> {
     const offset = (page - 1) * limit;
-    const [{ count }] = await db('users').count('id as count');
-    const rows = await db('users')
+
+    let query = db('users').whereNot('role', 'admin');
+    let countQuery = db('users').whereNot('role', 'admin');
+
+    if (q) {
+      query = query.where((b) => b.whereILike('name', `%${q}%`).orWhereILike('email', `%${q}%`));
+      countQuery = countQuery.where((b) =>
+        b.whereILike('name', `%${q}%`).orWhereILike('email', `%${q}%`),
+      );
+    }
+    if (status === 'BANNED') {
+      query = query.where('is_banned', true);
+      countQuery = countQuery.where('is_banned', true);
+    } else if (status === 'ACTIVE') {
+      query = query.where('is_banned', false);
+      countQuery = countQuery.where('is_banned', false);
+    }
+
+    const [{ count }] = await countQuery.count('id as count');
+    const rows = await query
       .orderBy('created_at', 'desc')
       .limit(limit)
       .offset(offset)
-      .select('*');
+      .select(
+        'users.*',
+        db.raw(
+          '(SELECT COUNT(*) FROM orders WHERE orders.user_id = users.id)::int AS orders_count',
+        ),
+      );
+
     return {
-      data: rows.map((r: Record<string, unknown>) => this.toEntity(r)),
+      data: rows.map((r: Record<string, unknown>) => ({
+        ...this.toEntity(r),
+        ordersCount: (r.orders_count as number) ?? 0,
+      })),
       total: Number(count),
     };
   }
@@ -82,6 +135,14 @@ export class UserRepository implements IUserRepository {
     const [row] = await db('users')
       .where({ id })
       .update({ is_banned: true, updated_at: db.fn.now() })
+      .returning('*');
+    return this.toEntity(row);
+  }
+
+  async unban(id: string): Promise<User> {
+    const [row] = await db('users')
+      .where({ id })
+      .update({ is_banned: false, updated_at: db.fn.now() })
       .returning('*');
     return this.toEntity(row);
   }

@@ -81,12 +81,31 @@ export class OrderRepository implements IOrderRepository {
     });
   }
 
-  async findById(id: string): Promise<OrderWithItems | null> {
-    const row = await db('orders').where({ id }).first();
+  async findById(id: string): Promise<
+    | (OrderWithItems & {
+        customerName: string;
+        customerEmail: string;
+        customerPhone: string | null;
+      })
+    | null
+  > {
+    const row = await db('orders')
+      .leftJoin('users', 'orders.user_id', 'users.id')
+      .where('orders.id', id)
+      .select(
+        'orders.*',
+        db.raw("COALESCE(users.name, '') as customer_name"),
+        db.raw("COALESCE(users.email, '') as customer_email"),
+        db.raw('users.phone as customer_phone'),
+      )
+      .first();
     if (!row) return null;
     const items = await db('order_items').where({ order_id: id }).select('*');
     return {
       ...this.toOrder(row),
+      customerName: row.customer_name as string,
+      customerEmail: row.customer_email as string,
+      customerPhone: (row.customer_phone as string) ?? null,
       items: items.map((r: Record<string, unknown>) => this.toOrderItem(r)),
     };
   }
@@ -110,28 +129,57 @@ export class OrderRepository implements IOrderRepository {
     };
   }
 
-  async findAll(filter: OrderFilter): Promise<{ data: Order[]; total: number }> {
+  async findAll(
+    filter: OrderFilter,
+  ): Promise<{ data: (Order & { customerName?: string; itemCount: number })[]; total: number }> {
     const page = filter.page ?? 1;
     const limit = filter.limit ?? 20;
     const offset = (page - 1) * limit;
 
-    let query = db('orders');
+    let query = db('orders')
+      .leftJoin('users', 'orders.user_id', 'users.id')
+      .select(
+        'orders.*',
+        db.raw("COALESCE(users.name, 'Unknown') as customer_name"),
+        db.raw(
+          '(SELECT COUNT(*) FROM order_items WHERE order_items.order_id = orders.id)::int as item_count',
+        ),
+      );
     let countQuery = db('orders');
 
     if (filter.userId) {
-      query = query.where('user_id', filter.userId);
+      query = query.where('orders.user_id', filter.userId);
       countQuery = countQuery.where('user_id', filter.userId);
     }
     if (filter.status) {
-      query = query.where('status', filter.status);
+      query = query.where('orders.status', filter.status);
       countQuery = countQuery.where('status', filter.status);
+    }
+    // Dates arrive as YYYY-MM-DD in Vietnam time (UTC+7).
+    // Convert to UTC boundaries for the DB query.
+    const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
+    if (filter.from) {
+      const fromUtc = new Date(new Date(filter.from + 'T00:00:00.000Z').getTime() - VN_OFFSET_MS);
+      query = query.where('orders.created_at', '>=', fromUtc);
+      countQuery = countQuery.where('created_at', '>=', fromUtc);
+    }
+    if (filter.to) {
+      const toUtc = new Date(
+        new Date(filter.to + 'T00:00:00.000Z').getTime() - VN_OFFSET_MS + 24 * 60 * 60 * 1000,
+      );
+      query = query.where('orders.created_at', '<', toUtc);
+      countQuery = countQuery.where('created_at', '<', toUtc);
     }
 
     const [{ count }] = await countQuery.count('id as count');
-    const rows = await query.orderBy('created_at', 'desc').limit(limit).offset(offset).select('*');
+    const rows = await query.orderBy('orders.created_at', 'desc').limit(limit).offset(offset);
 
     return {
-      data: rows.map((r: Record<string, unknown>) => this.toOrder(r)),
+      data: rows.map((r: Record<string, unknown>) => ({
+        ...this.toOrder(r),
+        customerName: r.customer_name as string,
+        itemCount: Number(r.item_count ?? 0),
+      })),
       total: Number(count),
     };
   }

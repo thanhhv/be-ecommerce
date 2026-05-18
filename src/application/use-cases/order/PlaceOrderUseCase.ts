@@ -146,7 +146,25 @@ export class PlaceOrderUseCase {
       shippingPhone: order.shippingPhone,
       shippingAddress: order.shippingAddress,
       notes: order.notes,
-      items: order.items,
+      items: order.items.map(
+        (i: {
+          id: string;
+          productId: string | null;
+          productNameSnapshot: string;
+          productImageSnapshot: string | null;
+          quantity: number;
+          unitPrice: number;
+          totalPrice: number;
+        }) => ({
+          id: i.id,
+          productId: i.productId,
+          productName: i.productNameSnapshot,
+          productImage: i.productImageSnapshot,
+          quantity: i.quantity,
+          unitPrice: i.unitPrice,
+          lineTotal: i.totalPrice,
+        }),
+      ),
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
     };

@@ -7,6 +7,8 @@ export class ListAllOrdersUseCase {
 
   async execute(filter: {
     status?: OrderStatus;
+    from?: string;
+    to?: string;
     page?: number;
     limit?: number;
   }): Promise<{ data: OrderListItemDTO[]; total: number }> {
@@ -16,10 +18,11 @@ export class ListAllOrdersUseCase {
     return {
       data: data.map((o) => ({
         id: o.id,
+        customerName: o.customerName ?? 'Unknown',
         status: o.status,
         paymentMethod: o.paymentMethod,
         total: o.total,
-        itemCount: 0,
+        itemCount: o.itemCount,
         createdAt: o.createdAt,
       })),
       total,

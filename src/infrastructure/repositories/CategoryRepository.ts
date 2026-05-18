@@ -48,4 +48,16 @@ export class CategoryRepository implements ICategoryRepository {
       .returning('*');
     return this.toEntity(row);
   }
+
+  async update(id: string, data: { name?: string; description?: string }): Promise<Category> {
+    const updateData: Record<string, unknown> = {};
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.description !== undefined) updateData.description = data.description;
+    const [row] = await db('categories').where({ id }).update(updateData).returning('*');
+    return this.toEntity(row);
+  }
+
+  async delete(id: string): Promise<void> {
+    await db('categories').where({ id }).delete();
+  }
 }
