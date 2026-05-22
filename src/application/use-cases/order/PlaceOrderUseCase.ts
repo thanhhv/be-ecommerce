@@ -5,6 +5,8 @@ import { IProductRepository } from '../../../domain/repositories/IProductReposit
 import { PlaceOrderDTO, OrderDTO } from '../../dtos/OrderDTO';
 import { ValidationError, NotFoundError } from '../../../shared/errors/AppError';
 import { db } from '../../../infrastructure/database/knex';
+import { NotificationRepository } from '../../../infrastructure/repositories/NotificationRepository';
+import { CreateNotificationUseCase } from '../notification/CreateNotificationUseCase';
 
 const FREE_SHIPPING_THRESHOLD = 500_000;
 const SHIPPING_FEE = 30_000;
@@ -132,6 +134,15 @@ export class PlaceOrderUseCase {
           totalPrice: r.total_price as number,
         })),
       };
+    });
+
+    // Fire notification (non-blocking — don't let a notification failure break the order)
+    void new CreateNotificationUseCase(new NotificationRepository()).execute({
+      type: 'NEW_ORDER',
+      title: `Đơn hàng mới #${order.id.slice(0, 8).toUpperCase()}`,
+      body: `${dto.shippingName} đặt đơn ${order.total.toLocaleString('vi-VN')}₫`,
+      refId: order.id,
+      refType: 'ORDER',
     });
 
     return {

@@ -21,6 +21,7 @@ import cartRouter from './presentation/routes/cart.route';
 import orderRouter from './presentation/routes/order.route';
 import adminOrderRouter from './presentation/routes/admin.order.route';
 import adminDashboardRouter from './presentation/routes/admin.dashboard.route';
+import adminNotificationRouter from './presentation/routes/admin.notification.route';
 import { ApiResponse } from './shared/response/ApiResponse';
 import { configurePassport } from './infrastructure/auth/passport';
 
@@ -77,6 +78,7 @@ export function createApp(): Application {
   app.use('/api/v1/admin', adminProductRouter);
   app.use('/api/v1/admin', adminOrderRouter);
   app.use('/api/v1/admin', adminDashboardRouter);
+  app.use('/api/v1/admin', adminNotificationRouter);
   app.use('/api/v1/cart', cartRouter);
   app.use('/api/v1/orders', orderRouter);
 
